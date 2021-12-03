@@ -31,23 +31,123 @@
 #include <numpy/arrayobject.h>
 #include <numpy/npy_math.h>
 
+#define NPY_PY3K 1
+
 #include "halffloat.h"
+
+
+
+
+
+#if 0
+
+// Python type for PyBfloat16 objects.
+PyTypeObject bfloat16_type = {
+    PyVarObject_HEAD_INIT(nullptr, 0) "bfloat16",  // tp_name
+    sizeof(PyBfloat16),                            // tp_basicsize
+    0,                                             // tp_itemsize
+    nullptr,                                       // tp_dealloc
+#if PY_VERSION_HEX < 0x03080000
+    nullptr,  // tp_print
+#else
+    0,  // tp_vectorcall_offset
+#endif
+    nullptr,               // tp_getattr
+    nullptr,               // tp_setattr
+    nullptr,               // tp_compare / tp_reserved
+    PyBfloat16_Repr,       // tp_repr
+    &PyBfloat16_AsNumber,  // tp_as_number
+    nullptr,               // tp_as_sequence
+    nullptr,               // tp_as_mapping
+    PyBfloat16_Hash,       // tp_hash
+    nullptr,               // tp_call
+    PyBfloat16_Str,        // tp_str
+    nullptr,               // tp_getattro
+    nullptr,               // tp_setattro
+    nullptr,               // tp_as_buffer
+                           // tp_flags
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    "bfloat16 floating-point values",  // tp_doc
+    nullptr,                           // tp_traverse
+    nullptr,                           // tp_clear
+    PyBfloat16_RichCompare,            // tp_richcompare
+    0,                                 // tp_weaklistoffset
+    nullptr,                           // tp_iter
+    nullptr,                           // tp_iternext
+    nullptr,                           // tp_methods
+    nullptr,                           // tp_members
+    nullptr,                           // tp_getset
+    nullptr,                           // tp_base
+    nullptr,                           // tp_dict
+    nullptr,                           // tp_descr_get
+    nullptr,                           // tp_descr_set
+    0,                                 // tp_dictoffset
+    nullptr,                           // tp_init
+    nullptr,                           // tp_alloc
+    PyBfloat16_New,                    // tp_new
+    nullptr,                           // tp_free
+    nullptr,                           // tp_is_gc
+    nullptr,                           // tp_bases
+    nullptr,                           // tp_mro
+    nullptr,                           // tp_cache
+    nullptr,                           // tp_subclasses
+    nullptr,                           // tp_weaklist
+    nullptr,                           // tp_del
+    0,                                 // tp_version_tag
+};
+
+// Numpy support
+
+PyArray_ArrFuncs NPyBfloat16_ArrFuncs;
+
+PyArray_Descr NPyBfloat16_Descr = {
+    PyObject_HEAD_INIT(nullptr)  //
+                                 /*typeobj=*/
+    (&bfloat16_type),
+    // We must register bfloat16 with a kind other than "f", because numpy
+    // considers two types with the same kind and size to be equal, but
+    // float16 != bfloat16.
+    // The downside of this is that NumPy scalar promotion does not work with
+    // bfloat16 values.
+    /*kind=*/'V',
+    // TODO(phawkins): there doesn't seem to be a way of guaranteeing a type
+    // character is unique.
+    /*type=*/'E',
+    /*byteorder=*/'=',
+    /*flags=*/NPY_NEEDS_PYAPI | NPY_USE_GETITEM | NPY_USE_SETITEM,
+    /*type_num=*/0,
+    /*elsize=*/sizeof(bfloat16),
+    /*alignment=*/alignof(bfloat16),
+    /*subarray=*/nullptr,
+    /*fields=*/nullptr,
+    /*names=*/nullptr,
+    /*f=*/&NPyBfloat16_ArrFuncs,
+    /*metadata=*/nullptr,
+    /*c_metadata=*/nullptr,
+    /*hash=*/-1,  // -1 means "not computed yet".
+};
+#endif
+
+
+
+
+
 
 typedef struct {
         PyObject_HEAD
         npy_half obval;
-} PyHalfScalarObject;
+} PyXHalfScalarObject;
 
 
-PyTypeObject PyHalfArrType_Type = {
+PyTypeObject PyXHalfArrType_Type = {
 #if defined(NPY_PY3K)
     PyVarObject_HEAD_INIT(NULL, 0)
 #else
     PyObject_HEAD_INIT(NULL)
     0,                                          /* ob_size */
 #endif
-    "half.float16",                             /* tp_name*/
-    sizeof(PyHalfScalarObject),                 /* tp_basicsize*/
+    "half.xfloat16",                            /* tp_name*/
+    sizeof(PyXHalfScalarObject),                 /* tp_basicsize*/
     0,                                          /* tp_itemsize */
     0,                                          /* tp_dealloc */
     0,                                          /* tp_print */
@@ -100,8 +200,55 @@ PyTypeObject PyHalfArrType_Type = {
 #endif
 };
 
-static PyArray_ArrFuncs _PyHalf_ArrFuncs;
+static PyArray_ArrFuncs _PyXHalf_ArrFuncs;
 PyArray_Descr *half_descr;
+
+
+PyArray_Descr xfloat16_Descr = {
+    PyObject_HEAD_INIT(nullptr)  //
+                                 /*typeobj=*/
+    (&PyXHalfArrType_Type),
+    // We must register bfloat16 with a kind other than "f", because numpy
+    // considers two types with the same kind and size to be equal, but
+    // float16 != bfloat16.
+    // The downside of this is that NumPy scalar promotion does not work with
+    // bfloat16 values.
+    /*kind=*/'f', /*'V',*/
+    // TODO(phawkins): there doesn't seem to be a way of guaranteeing a type
+    // character is unique.
+    /*type=*/'j', /*'E',*/
+    /*byteorder=*/'=',
+    /*flags=*/NPY_NEEDS_PYAPI | NPY_USE_GETITEM | NPY_USE_SETITEM,
+    /*type_num=*/0,
+    /*elsize=*/sizeof(npy_half),
+    /*alignment=*/sizeof(npy_half), /*alignof(npy_half),*/
+    /*subarray=*/nullptr,
+    /*fields=*/nullptr,
+    /*names=*/nullptr,
+    /*f=*/&_PyXHalf_ArrFuncs,
+    /*metadata=*/nullptr,
+    /*c_metadata=*/nullptr,
+    /*hash=*/-1,  // -1 means "not computed yet".
+};
+
+#if 0
+    half_descr = PyObject_New(PyArray_Descr, &PyArrayDescr_Type);
+    half_descr->typeobj = &PyXHalfArrType_Type;
+    half_descr->kind = 'f';
+    half_descr->type = 'j';
+    half_descr->byteorder = '=';
+    half_descr->type_num = 0; /* assigned at registration */
+    half_descr->elsize = 2;
+    half_descr->alignment = 2;
+    half_descr->subarray = NULL;
+    half_descr->fields = NULL;
+    half_descr->names = NULL;
+    half_descr->f = &_PyXHalf_ArrFuncs;
+#endif
+
+
+
+
 
 static npy_half
 MyPyFloat_AsHalf(PyObject *obj)
@@ -144,7 +291,7 @@ static int HALF_setitem(PyObject *op, char *ov, PyArrayObject *ap)
     npy_half temp; /* ensures alignment */
 
     if (PyArray_IsScalar(op, Half)) {
-        temp = ((PyHalfScalarObject *)op)->obval;
+        temp = ((PyXHalfScalarObject *)op)->obval;
     }
     else {
         temp = MyPyFloat_AsHalf(op);
@@ -494,7 +641,7 @@ half_arrtype_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     if (obj != NULL) {
         value = MyPyFloat_AsHalf(obj);
     }
-    return PyArray_Scalar(&value, half_descr, NULL);
+    return PyArray_Scalar(&value, &xfloat16_Descr, NULL);
 }
 
 static PyObject *
@@ -515,7 +662,7 @@ static long
 halftype_hash(PyObject *obj)
 {
     double temp;
-    temp = half_to_double(((PyHalfScalarObject *)obj)->obval);
+    temp = half_to_double(((PyXHalfScalarObject *)obj)->obval);
     return _Py_HashDouble(*((double*)&temp));
 }
 
@@ -524,9 +671,9 @@ PyObject* halftype_repr(PyObject *o)
     double temp;
     char str[48];
 
-    temp = half_to_double(((PyHalfScalarObject *)o)->obval);
-    sprintf(str, "float16(%g)", *((double*)&temp));
-    return PyString_FromString(str);
+    temp = half_to_double(((PyXHalfScalarObject *)o)->obval);
+    sprintf(str, "xfloat16(%g)", *((double*)&temp));
+    return PyUnicode_FromString(str);
 }
 
 PyObject* halftype_str(PyObject *o)
@@ -534,24 +681,48 @@ PyObject* halftype_str(PyObject *o)
     double temp;
     char str[48];
 
-    temp = half_to_double(((PyHalfScalarObject *)o)->obval);
+    temp = half_to_double(((PyXHalfScalarObject *)o)->obval);
     sprintf(str, "%g", *((double*)&temp));
-    return PyString_FromString(str);
+    return PyUnicode_FromString(str);
 }
+
+#if PY_MAJOR_VERSION >= 3
+  #define MOD_ERROR_VAL NULL
+  #define MOD_SUCCESS_VAL(val) val
+  #define MOD_INIT(name) PyMODINIT_FUNC PyInit_##name(void)
+  #define MOD_DEF(ob, name, doc, methods) \
+          static struct PyModuleDef moduledef = { \
+            PyModuleDef_HEAD_INIT, name, doc, -1, methods, }; \
+          ob = PyModule_Create(&moduledef);
+#else
+  #define MOD_ERROR_VAL
+  #define MOD_SUCCESS_VAL(val)
+  #define MOD_INIT(name) void init##name(void)
+  #define MOD_DEF(ob, name, doc, methods) \
+          ob = Py_InitModule3(name, methods, doc);
+#endif
+
 
 static PyMethodDef HalfMethods[] = {
     {NULL, NULL, 0, NULL}
 };
+const char* module___doc__ = "";
 
-PyMODINIT_FUNC initnumpy_half(void)
+PyMODINIT_FUNC PyInit_numpy_xhalf(void)
 {
     PyObject *m;
     int halfNum;
     PyArray_Descr *descr;
 
-    m = Py_InitModule("numpy_half", HalfMethods);
+    m = NULL;
+
+    //m = Py_InitModule("numpy_xhalf", HalfMethods);
+#if 1
+    MOD_DEF(m, "numpy_xhalf", module___doc__,
+            HalfMethods)
+#endif
     if (m == NULL) {
-        return;
+        return NULL;
     }
 
     /* Make sure NumPy is initialized */
@@ -559,62 +730,63 @@ PyMODINIT_FUNC initnumpy_half(void)
 
     /* Register the half array scalar type */
 #if defined(NPY_PY3K)
-    PyHalfArrType_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+    PyXHalfArrType_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
 #else
-    PyHalfArrType_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES;
+    PyXHalfArrType_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES;
 #endif
-    PyHalfArrType_Type.tp_new = half_arrtype_new;
-    PyHalfArrType_Type.tp_richcompare = gentype_richcompare;
-    PyHalfArrType_Type.tp_hash = halftype_hash;
-    PyHalfArrType_Type.tp_repr = halftype_repr;
-    PyHalfArrType_Type.tp_str = halftype_str;
-    PyHalfArrType_Type.tp_base = &PyFloatingArrType_Type;
-    if (PyType_Ready(&PyHalfArrType_Type) < 0) {
+    PyXHalfArrType_Type.tp_new = half_arrtype_new;
+    PyXHalfArrType_Type.tp_richcompare = gentype_richcompare;
+    PyXHalfArrType_Type.tp_hash = halftype_hash;
+    PyXHalfArrType_Type.tp_repr = halftype_repr;
+    PyXHalfArrType_Type.tp_str = halftype_str;
+    PyXHalfArrType_Type.tp_base = &PyFloatingArrType_Type;
+    if (PyType_Ready(&PyXHalfArrType_Type) < 0) {
         PyErr_Print();
-        PyErr_SetString(PyExc_SystemError, "could not initialize PyHalfArrType_Type");
-        return;
+        PyErr_SetString(PyExc_SystemError, "could not initialize PyXHalfArrType_Type");
+        return NULL;
     }
 
     /* The array functions */
-    PyArray_InitArrFuncs(&_PyHalf_ArrFuncs);
-    _PyHalf_ArrFuncs.getitem = (PyArray_GetItemFunc*)HALF_getitem;
-    _PyHalf_ArrFuncs.setitem = (PyArray_SetItemFunc*)HALF_setitem;
+    PyArray_InitArrFuncs(&_PyXHalf_ArrFuncs);
+    _PyXHalf_ArrFuncs.getitem = (PyArray_GetItemFunc*)HALF_getitem;
+    _PyXHalf_ArrFuncs.setitem = (PyArray_SetItemFunc*)HALF_setitem;
     /* copy copyswap and copyswapn from uint16 */
     descr = PyArray_DescrFromType(NPY_UINT16);
-    _PyHalf_ArrFuncs.copyswap = descr->f->copyswap;
-    _PyHalf_ArrFuncs.copyswapn = descr->f->copyswapn;
+    _PyXHalf_ArrFuncs.copyswap = descr->f->copyswap;
+    _PyXHalf_ArrFuncs.copyswapn = descr->f->copyswapn;
     Py_DECREF(descr);
-    _PyHalf_ArrFuncs.compare = (PyArray_CompareFunc*)HALF_compare;
-    _PyHalf_ArrFuncs.argmax = (PyArray_ArgFunc*)HALF_argmax;
-    _PyHalf_ArrFuncs.dotfunc = (PyArray_DotFunc*)HALF_dot;
+    _PyXHalf_ArrFuncs.compare = (PyArray_CompareFunc*)HALF_compare;
+    _PyXHalf_ArrFuncs.argmax = (PyArray_ArgFunc*)HALF_argmax;
+    _PyXHalf_ArrFuncs.dotfunc = (PyArray_DotFunc*)HALF_dot;
     /*
-    _PyHalf_ArrFuncs.scanfunc = (PyArray_ScanFunc*)HALF_scan;
-    _PyHalf_ArrFuncs.fromstr = (PyArray_FromStrFunc*)HALF_fromstr;
+    _PyXHalf_ArrFuncs.scanfunc = (PyArray_ScanFunc*)HALF_scan;
+    _PyXHalf_ArrFuncs.fromstr = (PyArray_FromStrFunc*)HALF_fromstr;
     */
-    _PyHalf_ArrFuncs.nonzero = (PyArray_NonzeroFunc*)HALF_nonzero;
-    _PyHalf_ArrFuncs.fill = (PyArray_FillFunc*)HALF_fill;
-    _PyHalf_ArrFuncs.fillwithscalar = (PyArray_FillWithScalarFunc*)HALF_fillwithscalar;
-    _PyHalf_ArrFuncs.cast[NPY_BOOL] = (PyArray_VectorUnaryFunc*)HALF_to_BOOL;
-    _PyHalf_ArrFuncs.cast[NPY_BYTE] = (PyArray_VectorUnaryFunc*)HALF_to_BYTE;
-    _PyHalf_ArrFuncs.cast[NPY_UBYTE] = (PyArray_VectorUnaryFunc*)HALF_to_UBYTE;
-    _PyHalf_ArrFuncs.cast[NPY_SHORT] = (PyArray_VectorUnaryFunc*)HALF_to_SHORT;
-    _PyHalf_ArrFuncs.cast[NPY_USHORT] = (PyArray_VectorUnaryFunc*)HALF_to_USHORT;
-    _PyHalf_ArrFuncs.cast[NPY_INT] = (PyArray_VectorUnaryFunc*)HALF_to_INT;
-    _PyHalf_ArrFuncs.cast[NPY_UINT] = (PyArray_VectorUnaryFunc*)HALF_to_UINT;
-    _PyHalf_ArrFuncs.cast[NPY_LONG] = (PyArray_VectorUnaryFunc*)HALF_to_LONG;
-    _PyHalf_ArrFuncs.cast[NPY_ULONG] = (PyArray_VectorUnaryFunc*)HALF_to_ULONG;
-    _PyHalf_ArrFuncs.cast[NPY_LONGLONG] = (PyArray_VectorUnaryFunc*)HALF_to_LONGLONG;
-    _PyHalf_ArrFuncs.cast[NPY_ULONGLONG] = (PyArray_VectorUnaryFunc*)HALF_to_ULONGLONG;
-    _PyHalf_ArrFuncs.cast[NPY_FLOAT] = (PyArray_VectorUnaryFunc*)HALF_to_FLOAT;
-    _PyHalf_ArrFuncs.cast[NPY_DOUBLE] = (PyArray_VectorUnaryFunc*)HALF_to_DOUBLE;
-    _PyHalf_ArrFuncs.cast[NPY_LONGDOUBLE] = (PyArray_VectorUnaryFunc*)HALF_to_LONGDOUBLE;
-    _PyHalf_ArrFuncs.cast[NPY_CFLOAT] = (PyArray_VectorUnaryFunc*)HALF_to_CFLOAT;
-    _PyHalf_ArrFuncs.cast[NPY_CDOUBLE] = (PyArray_VectorUnaryFunc*)HALF_to_CDOUBLE;
-    _PyHalf_ArrFuncs.cast[NPY_CLONGDOUBLE] = (PyArray_VectorUnaryFunc*)HALF_to_CLONGDOUBLE;
+    _PyXHalf_ArrFuncs.nonzero = (PyArray_NonzeroFunc*)HALF_nonzero;
+    _PyXHalf_ArrFuncs.fill = (PyArray_FillFunc*)HALF_fill;
+    _PyXHalf_ArrFuncs.fillwithscalar = (PyArray_FillWithScalarFunc*)HALF_fillwithscalar;
+    _PyXHalf_ArrFuncs.cast[NPY_BOOL] = (PyArray_VectorUnaryFunc*)HALF_to_BOOL;
+    _PyXHalf_ArrFuncs.cast[NPY_BYTE] = (PyArray_VectorUnaryFunc*)HALF_to_BYTE;
+    _PyXHalf_ArrFuncs.cast[NPY_UBYTE] = (PyArray_VectorUnaryFunc*)HALF_to_UBYTE;
+    _PyXHalf_ArrFuncs.cast[NPY_SHORT] = (PyArray_VectorUnaryFunc*)HALF_to_SHORT;
+    _PyXHalf_ArrFuncs.cast[NPY_USHORT] = (PyArray_VectorUnaryFunc*)HALF_to_USHORT;
+    _PyXHalf_ArrFuncs.cast[NPY_INT] = (PyArray_VectorUnaryFunc*)HALF_to_INT;
+    _PyXHalf_ArrFuncs.cast[NPY_UINT] = (PyArray_VectorUnaryFunc*)HALF_to_UINT;
+    _PyXHalf_ArrFuncs.cast[NPY_LONG] = (PyArray_VectorUnaryFunc*)HALF_to_LONG;
+    _PyXHalf_ArrFuncs.cast[NPY_ULONG] = (PyArray_VectorUnaryFunc*)HALF_to_ULONG;
+    _PyXHalf_ArrFuncs.cast[NPY_LONGLONG] = (PyArray_VectorUnaryFunc*)HALF_to_LONGLONG;
+    _PyXHalf_ArrFuncs.cast[NPY_ULONGLONG] = (PyArray_VectorUnaryFunc*)HALF_to_ULONGLONG;
+    _PyXHalf_ArrFuncs.cast[NPY_FLOAT] = (PyArray_VectorUnaryFunc*)HALF_to_FLOAT;
+    _PyXHalf_ArrFuncs.cast[NPY_DOUBLE] = (PyArray_VectorUnaryFunc*)HALF_to_DOUBLE;
+    _PyXHalf_ArrFuncs.cast[NPY_LONGDOUBLE] = (PyArray_VectorUnaryFunc*)HALF_to_LONGDOUBLE;
+    _PyXHalf_ArrFuncs.cast[NPY_CFLOAT] = (PyArray_VectorUnaryFunc*)HALF_to_CFLOAT;
+    _PyXHalf_ArrFuncs.cast[NPY_CDOUBLE] = (PyArray_VectorUnaryFunc*)HALF_to_CDOUBLE;
+    _PyXHalf_ArrFuncs.cast[NPY_CLONGDOUBLE] = (PyArray_VectorUnaryFunc*)HALF_to_CLONGDOUBLE;
 
+#if 0
     /* The half array descr */
     half_descr = PyObject_New(PyArray_Descr, &PyArrayDescr_Type);
-    half_descr->typeobj = &PyHalfArrType_Type;
+    half_descr->typeobj = &PyXHalfArrType_Type;
     half_descr->kind = 'f';
     half_descr->type = 'j';
     half_descr->byteorder = '=';
@@ -624,14 +796,16 @@ PyMODINIT_FUNC initnumpy_half(void)
     half_descr->subarray = NULL;
     half_descr->fields = NULL;
     half_descr->names = NULL;
-    half_descr->f = &_PyHalf_ArrFuncs;
+    half_descr->f = &_PyXHalf_ArrFuncs;
+#endif
 
 
-    Py_INCREF(&PyHalfArrType_Type);
-    halfNum = PyArray_RegisterDataType(half_descr);
+    Py_INCREF(&PyXHalfArrType_Type);
+    Py_TYPE(&xfloat16_Descr) = &PyArrayDescr_Type;
+    halfNum = PyArray_RegisterDataType(&xfloat16_Descr);
 
     if (halfNum < 0)
-        return;
+        return NULL;
 
     register_cast_function(NPY_BOOL, halfNum, (PyArray_VectorUnaryFunc*)BOOL_to_HALF);
     register_cast_function(NPY_BYTE, halfNum, (PyArray_VectorUnaryFunc*)BYTE_to_HALF);
@@ -651,12 +825,13 @@ PyMODINIT_FUNC initnumpy_half(void)
     register_cast_function(NPY_CDOUBLE, halfNum, (PyArray_VectorUnaryFunc*)CDOUBLE_to_HALF);
     register_cast_function(NPY_CLONGDOUBLE, halfNum, (PyArray_VectorUnaryFunc*)CLONGDOUBLE_to_HALF);
 
-    PyArray_RegisterCanCast(half_descr, NPY_FLOAT, NPY_NOSCALAR);
-    PyArray_RegisterCanCast(half_descr, NPY_DOUBLE, NPY_NOSCALAR);
-    PyArray_RegisterCanCast(half_descr, NPY_LONGDOUBLE, NPY_NOSCALAR);
-    PyArray_RegisterCanCast(half_descr, NPY_CFLOAT, NPY_NOSCALAR);
-    PyArray_RegisterCanCast(half_descr, NPY_CDOUBLE, NPY_NOSCALAR);
-    PyArray_RegisterCanCast(half_descr, NPY_CLONGDOUBLE, NPY_NOSCALAR);
+    PyArray_RegisterCanCast(&xfloat16_Descr, NPY_FLOAT, NPY_NOSCALAR);
+    PyArray_RegisterCanCast(&xfloat16_Descr, NPY_DOUBLE, NPY_NOSCALAR);
+    PyArray_RegisterCanCast(&xfloat16_Descr, NPY_LONGDOUBLE, NPY_NOSCALAR);
+    PyArray_RegisterCanCast(&xfloat16_Descr, NPY_CFLOAT, NPY_NOSCALAR);
+    PyArray_RegisterCanCast(&xfloat16_Descr, NPY_CDOUBLE, NPY_NOSCALAR);
+    PyArray_RegisterCanCast(&xfloat16_Descr, NPY_CLONGDOUBLE, NPY_NOSCALAR);
 
-    PyModule_AddObject(m, "float16", (PyObject *)&PyHalfArrType_Type);
+    PyModule_AddObject(m, "xfloat16", (PyObject *)&PyXHalfArrType_Type);
+    return m;
 }
