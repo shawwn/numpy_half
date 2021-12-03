@@ -33,7 +33,7 @@
 
 #define NPY_PY3K 1
 
-#include "halffloat.h"
+#include "bfloat16.h"
 
 
 
@@ -146,7 +146,7 @@ PyTypeObject PyXHalfArrType_Type = {
     PyObject_HEAD_INIT(NULL)
     0,                                          /* ob_size */
 #endif
-    "half.xfloat16",                            /* tp_name*/
+    "half.bfloat16",                            /* tp_name*/
     sizeof(PyXHalfScalarObject),                 /* tp_basicsize*/
     0,                                          /* tp_itemsize */
     0,                                          /* tp_dealloc */
@@ -213,10 +213,10 @@ PyArray_Descr xfloat16_Descr = {
     // float16 != bfloat16.
     // The downside of this is that NumPy scalar promotion does not work with
     // bfloat16 values.
-    /*kind=*/'f', /*'V',*/
+    /*kind=*/'V',
     // TODO(phawkins): there doesn't seem to be a way of guaranteeing a type
     // character is unique.
-    /*type=*/'j', /*'E',*/
+    /*type=*/'E',
     /*byteorder=*/'=',
     /*flags=*/NPY_NEEDS_PYAPI | NPY_USE_GETITEM | NPY_USE_SETITEM,
     /*type_num=*/0,
@@ -672,7 +672,7 @@ PyObject* halftype_repr(PyObject *o)
     char str[48];
 
     temp = half_to_double(((PyXHalfScalarObject *)o)->obval);
-    sprintf(str, "xfloat16(%g)", *((double*)&temp));
+    sprintf(str, "bfloat16(%g)", *((double*)&temp));
     return PyUnicode_FromString(str);
 }
 
@@ -739,6 +739,7 @@ PyMODINIT_FUNC PyInit_numpy_xhalf(void)
     PyXHalfArrType_Type.tp_hash = halftype_hash;
     PyXHalfArrType_Type.tp_repr = halftype_repr;
     PyXHalfArrType_Type.tp_str = halftype_str;
+    /* PyXHalfArrType_Type.tp_base = &PyFloatingArrType_Type; */
     PyXHalfArrType_Type.tp_base = &PyFloatingArrType_Type;
     if (PyType_Ready(&PyXHalfArrType_Type) < 0) {
         PyErr_Print();
@@ -832,6 +833,6 @@ PyMODINIT_FUNC PyInit_numpy_xhalf(void)
     PyArray_RegisterCanCast(&xfloat16_Descr, NPY_CDOUBLE, NPY_NOSCALAR);
     PyArray_RegisterCanCast(&xfloat16_Descr, NPY_CLONGDOUBLE, NPY_NOSCALAR);
 
-    PyModule_AddObject(m, "xfloat16", (PyObject *)&PyXHalfArrType_Type);
+    PyModule_AddObject(m, "bfloat16", (PyObject *)&PyXHalfArrType_Type);
     return m;
 }
